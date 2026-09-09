@@ -9,6 +9,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 6.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 }
 
@@ -21,12 +25,19 @@ variable "aws_region" {
 }
 
 variable "bucket_name" {
-  default = "my-app-data-bucket" # must be globally unique — change this
+  default = "my-app-data-bucket" # base name — a random suffix is appended to keep it globally unique
+}
+
+# S3 bucket names must be globally unique across all AWS accounts,
+# so a random suffix is appended automatically instead of requiring a manual edit.
+resource "random_id" "suffix" {
+  byte_length = 4
 }
 
 # --- The room: one S3 bucket ---
 resource "aws_s3_bucket" "app_data" {
-  bucket = var.bucket_name
+  bucket        = "${var.bucket_name}-${random_id.suffix.hex}"
+  force_destroy = true
 }
 
 # --- The badge: an IAM role only an EC2 instance can wear ---

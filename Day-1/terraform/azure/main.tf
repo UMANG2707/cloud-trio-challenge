@@ -9,6 +9,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 }
 
@@ -21,7 +25,18 @@ variable "location" {
 }
 
 variable "storage_account_name" {
-  default = "myappdatastorage001" # must be globally unique, lowercase, no dashes
+  default = "myappdatastorage" # base name — a random suffix is appended to keep it globally unique
+}
+
+variable "ssh_public_key_path" {
+  description = "Path to the SSH public key used to log into the VM"
+  default     = "~/.ssh/id_rsa.pub"
+}
+
+# Storage account names must be globally unique, lowercase, no dashes,
+# so a random suffix is appended automatically instead of requiring a manual edit.
+resource "random_id" "suffix" {
+  byte_length = 4
 }
 
 resource "azurerm_resource_group" "app" {
@@ -31,7 +46,7 @@ resource "azurerm_resource_group" "app" {
 
 # --- The room: one Storage Account ---
 resource "azurerm_storage_account" "app_data" {
-  name                     = var.storage_account_name
+  name                     = "${var.storage_account_name}${random_id.suffix.hex}"
   resource_group_name      = azurerm_resource_group.app.name
   location                 = azurerm_resource_group.app.location
   account_tier             = "Standard"
@@ -75,7 +90,7 @@ resource "azurerm_linux_virtual_machine" "app_vm" {
 
   admin_ssh_key {
     username   = "azureuser"
-    public_key = file("~/.ssh/id_rsa.pub") # change this path
+    public_key = file(pathexpand(var.ssh_public_key_path))
   }
 
   os_disk {

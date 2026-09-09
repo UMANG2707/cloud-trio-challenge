@@ -9,6 +9,10 @@ terraform {
       source  = "hashicorp/google"
       version = "~> 7.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
   }
 }
 
@@ -30,13 +34,21 @@ variable "zone" {
 }
 
 variable "bucket_name" {
-  default = "my-app-data-bucket" # must be globally unique — change this
+  default = "my-app-data-bucket" # base name — a random suffix is appended to keep it globally unique
+}
+
+# Bucket names must be globally unique across all GCP projects,
+# so a random suffix is appended automatically instead of requiring a manual edit.
+resource "random_id" "suffix" {
+  byte_length = 4
 }
 
 # --- The room: one Storage Bucket ---
 resource "google_storage_bucket" "app_data" {
-  name     = var.bucket_name
-  location = "US"
+  name                        = "${var.bucket_name}-${random_id.suffix.hex}"
+  location                    = "US"
+  force_destroy               = true
+  uniform_bucket_level_access = true
 }
 
 # --- The badge: a service account, attached to the VM ---
